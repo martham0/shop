@@ -10,14 +10,23 @@ import Review from './Review';
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLIC_KEY);
 
-const PaymentForm = ({ shippingData, checkoutToken, backStep }) => {
-  const handleSubmit = (event, elements, stripe) => {
+const PaymentForm = ({
+  shippingData,
+  checkoutToken,
+  backStep,
+  onCaptureCheckout,
+  nextStep,
+}) => {
+  const handleSubmit = async (event, elements, stripe) => {
     event.preventDefault();
 
     if (!stripe || !elements) return;
     const cardElement = elements.getElement(CardElement);
 
-    // const { error, paymentMethod } = await stripe.createPaymentMethod({type: 'card', card: cardElement});
+    const { error, paymentMethod } = await stripe.createPaymentMethod({
+      type: 'card',
+      card: cardElement,
+    });
 
     if (error) {
       console.log('[error]', error);
@@ -25,12 +34,12 @@ const PaymentForm = ({ shippingData, checkoutToken, backStep }) => {
       const orderData = {
         list_items: checkoutToken.live.line_items,
         customer: {
-          firstname: shippingData.firstname,
-          lastname: shippingData.lastname,
+          firstname: shippingData.firstName,
+          lastname: shippingData.lastName,
           email: shippingData.email,
         },
         shipping: {
-          name: 'Primary',
+          name: 'Primary', /// need to add shippingData.shippingOption
           street: shippingData.address1,
           town_city: shippingData.city,
           county_state: shippingData.shippingSubdivision,
@@ -38,13 +47,16 @@ const PaymentForm = ({ shippingData, checkoutToken, backStep }) => {
           country: 'US',
         },
         fullfillment: { shipping_method: shippingData.shippingOption },
-        paymenr: {
+        payment: {
           gateway: 'stripe',
           stripe: {
             payment_method_id: paymentMethod.id,
           },
         },
       };
+      onCaptureCheckout(checkoutToken.id, orderData);
+
+      nextStep();
     }
   };
 
@@ -58,7 +70,7 @@ const PaymentForm = ({ shippingData, checkoutToken, backStep }) => {
       <Elements stripe={stripePromise}>
         <ElementsConsumer>
           {({ elements, stripe }) => (
-            <form onSubmit={handleSubmit(e, elements, stripe)}>
+            <form onSubmit={(e) => handleSubmit(e, elements, stripe)}>
               <CardElement />
               <br /> <br />
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
